@@ -5,7 +5,6 @@ import { ElectivePicker } from "@/components/ElectivePicker";
 export function TimetableList({
   slots,
   compact,
-  dow,
   choiceMap = null,
   classId,
   editable = false,
@@ -14,7 +13,6 @@ export function TimetableList({
 }: {
   slots: EffectiveSlot[];
   compact?: boolean;
-  dow: number;
   choiceMap?: Map<string, string> | null;
   classId?: string;
   editable?: boolean;
@@ -26,7 +24,7 @@ export function TimetableList({
     <ol className="flex flex-col divide-y divide-[var(--border)]">
       {slots.map((slot) => {
         const isElective = slot.candidates.length > 1;
-        const chosen = resolveCandidate(slot, choiceMap, dow);
+        const chosen = resolveCandidate(slot, choiceMap);
         const isCurrent = currentPeriod === slot.period;
         const isNext = !isCurrent && nextPeriod === slot.period;
 
@@ -55,8 +53,6 @@ export function TimetableList({
               {isElective && editable && classId ? (
                 <ElectivePicker
                   classId={classId}
-                  dayOfWeek={dow}
-                  period={slot.period}
                   candidates={slot.candidates}
                   chosenSubjectId={chosen?.subjectId ?? null}
                   electiveGroup={slot.electiveGroup}

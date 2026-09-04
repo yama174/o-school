@@ -8,15 +8,11 @@ import type { SlotCandidate } from "@/lib/timetable";
 
 export function ElectivePicker({
   classId,
-  dayOfWeek,
-  period,
   candidates,
   chosenSubjectId,
   electiveGroup,
 }: {
   classId: string;
-  dayOfWeek: number;
-  period: number;
   candidates: SlotCandidate[];
   chosenSubjectId: string | null;
   electiveGroup: string | null;
@@ -37,11 +33,12 @@ export function ElectivePicker({
             <button
               key={c.subjectId}
               type="button"
-              disabled={pending}
+              disabled={pending || !electiveGroup}
               onClick={() => {
+                if (!electiveGroup) return;
                 setChosen(c.subjectId);
                 startTransition(async () => {
-                  await setElectiveChoiceAction(classId, dayOfWeek, period, c.subjectId);
+                  await setElectiveChoiceAction(classId, electiveGroup, c.subjectId);
                   router.refresh();
                 });
               }}

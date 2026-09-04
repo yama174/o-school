@@ -105,11 +105,16 @@ async function main() {
   }
   const sid = (name: string) => subjects[name].id;
 
-  console.log("🗓️ 学年別の週間時間割を作成しています...");
+  console.log("🗓️ 学年別の週間時間割(テンプレート)を作成しています...");
 
   type SlotDef = { period: number; subject: string; elective?: string; teacher?: string };
   type WeekDef = Record<number, SlotDef[]>; // dayOfWeek(1-5) -> slots
 
+  // 【重要】TimetableSlot(週間テンプレート)は生徒には一切表示されない。
+  // 実際に生徒へ表示される時間割は、この下で作成する DailyOverride(実際の日付ごとのデータ)
+  // のみが正となる(学校の時間割は毎週同じパターンではなく週によって変わるため)。
+  // ここではテンプレートを「管理画面で週を作るときのたたき台」として使えるように登録しつつ、
+  // 同じ内容を実際の日付にも展開してデモ用の表示データを作る。
   async function createWeek(classId: string, week: WeekDef) {
     for (const [dow, slots] of Object.entries(week)) {
       for (const slot of slots) {
@@ -127,8 +132,41 @@ async function main() {
     }
   }
 
+  /**
+   * テンプレート(WeekDef)を、指定した日付範囲の平日すべてに展開して
+   * DailyOverride/DailyOverrideSlotとして作成する(デモ表示用の実データ)。
+   * 同じ1週間分のパターンを範囲内の全週で繰り返し使うが、これはあくまで
+   * デモデータ作成の都合であり、システム自体は週ごとに異なる内容を許容する
+   * (この後の「特定の日だけの変更」が、実際にここで作られたデータを上書きする)。
+   */
+  async function materializeWeekdays(classId: string, week: WeekDef, from: Date, to: Date) {
+    let cur = from;
+    while (cur.getTime() <= to.getTime()) {
+      const dow = cur.getUTCDay();
+      const daySlots = week[dow];
+      if (daySlots && daySlots.length > 0) {
+        await prisma.dailyOverride.create({
+          data: {
+            classId,
+            date: cur,
+            kind: "CUSTOM",
+            slots: {
+              create: daySlots.map((s) => ({
+                period: s.period,
+                subjectId: sid(s.subject),
+                electiveGroup: s.elective ?? null,
+                teacher: s.teacher ?? null,
+              })),
+            },
+          },
+        });
+      }
+      cur = new Date(Date.UTC(cur.getUTCFullYear(), cur.getUTCMonth(), cur.getUTCDate() + 1));
+    }
+  }
+
   // ---- 1年A組 -----------------------------------------------------------
-  await createWeek(class1A.id, {
+  const week1A: WeekDef = {
     1: [
       { period: 1, subject: "現代の国語" },
       { period: 2, subject: "数学Ⅰ" },
@@ -172,10 +210,10 @@ async function main() {
       { period: 5, subject: "現代の国語" },
       { period: 6, subject: "LHR" },
     ],
-  });
+  };
 
   // ---- 2年A組 -----------------------------------------------------------
-  await createWeek(class2A.id, {
+  const week2A: WeekDef = {
     1: [
       { period: 1, subject: "数学Ⅱ" },
       { period: 2, subject: "論理・表現Ⅱ" },
@@ -218,10 +256,10 @@ async function main() {
       { period: 5, subject: "世界史探究" },
       { period: 6, subject: "LHR" },
     ],
-  });
+  };
 
   // ---- 3年A組(選択科目あり) ---------------------------------------------
-  await createWeek(class3A.id, {
+  const week3A: WeekDef = {
     1: [
       { period: 1, subject: "現代の国語" },
       { period: 2, subject: "数学Ⅱ" },
@@ -264,10 +302,10 @@ async function main() {
       { period: 5, subject: "論理・表現Ⅱ" },
       { period: 6, subject: "LHR" },
     ],
-  });
+  };
 
   // ---- 3年B組(選択科目なし・A組と異なる構成) -----------------------------
-  await createWeek(class3B.id, {
+  const week3B: WeekDef = {
     1: [
       { period: 1, subject: "現代の国語" },
       { period: 2, subject: "数学Ⅱ" },
@@ -308,9 +346,26 @@ async function main() {
       { period: 5, subject: "論理・表現Ⅱ" },
       { period: 6, subject: "LHR" },
     ],
-  });
+  };
 
-  console.log("📅 日付ごとの時間割変更を作成しています...");
+  await createWeek(class1A.id, week1A);
+  await createWeek(class2A.id, week2A);
+  await createWeek(class3A.id, week3A);
+  await createWeek(class3B.id, week3B);
+
+  console.log("📅 実際の日付ごとの時間割(表示データ)を作成しています...");
+  // 【重要】ここが生徒に表示される時間割データの本体。テンプレート(週間パターン)を
+  // そのまま自動表示するのではなく、実際の日付ごとに DailyOverride として展開する。
+  // このデモでは分かりやすさのため同じ週パターンを繰り返し使っているが、実際の運用では
+  // 週ごとに異なる内容を自由に入力できる(このデータもすべて管理画面から編集可能)。
+  const demoFrom = d(2026, 9, 1);
+  const demoTo = d(2026, 10, 3);
+  await materializeWeekdays(class1A.id, week1A, demoFrom, demoTo);
+  await materializeWeekdays(class2A.id, week2A, demoFrom, demoTo);
+  await materializeWeekdays(class3A.id, week3A, demoFrom, demoTo);
+  await materializeWeekdays(class3B.id, week3B, demoFrom, demoTo);
+
+  console.log("📅 日付ごとの時間割変更(特定の日だけの上書き)を作成しています...");
   // 学校行事(体育祭・文化祭)は全学年共通のため、全クラスに同じ上書きを作成する。
   async function createOverrideForAllClasses(
     date: Date,
@@ -319,6 +374,7 @@ async function main() {
     note: string
   ) {
     for (const klass of allClasses) {
+      await prisma.dailyOverride.deleteMany({ where: { classId: klass.id, date } });
       await prisma.dailyOverride.create({
         data: { classId: klass.id, date, kind, title, note },
       });
@@ -345,6 +401,7 @@ async function main() {
   );
 
   // 3年生だけ午前授業(進路説明会のため) — 学年により対応が異なる例
+  await prisma.dailyOverride.deleteMany({ where: { classId: class3A.id, date: d(2026, 9, 9) } });
   await prisma.dailyOverride.create({
     data: {
       classId: class3A.id,
@@ -362,6 +419,7 @@ async function main() {
       },
     },
   });
+  await prisma.dailyOverride.deleteMany({ where: { classId: class3B.id, date: d(2026, 9, 9) } });
   await prisma.dailyOverride.create({
     data: {
       classId: class3B.id,
@@ -408,6 +466,7 @@ async function main() {
     ],
   };
   for (const klass of allClasses) {
+    await prisma.dailyOverride.deleteMany({ where: { classId: klass.id, date: d(2026, 9, 16) } });
     await prisma.dailyOverride.create({
       data: {
         classId: klass.id,
@@ -421,6 +480,7 @@ async function main() {
   }
 
   // 特定の日だけの選択科目の例(3年A組・9/17・3限: 数学Ⅲ または 日本史探究)
+  await prisma.dailyOverride.deleteMany({ where: { classId: class3A.id, date: d(2026, 9, 17) } });
   await prisma.dailyOverride.create({
     data: {
       classId: class3A.id,
@@ -487,14 +547,16 @@ async function main() {
   });
 
   console.log("🧭 選択科目の履修選択(デモ)を作成しています...");
+  // electiveGroup(選択科目グループ名)をキーに保存する。曜日・時限は週によって変わるため
+  // 識別子として使わない(設計変更点。詳細は schema.prisma の ElectiveChoice のコメント参照)。
   await prisma.electiveChoice.create({
-    data: { userId: student1.id, classId: class3A.id, dayOfWeek: 4, period: 4, subjectId: sid("化学基礎") },
+    data: { userId: student1.id, classId: class3A.id, electiveGroup: "文理選択", subjectId: sid("化学基礎") },
   });
   await prisma.electiveChoice.create({
-    data: { userId: student2.id, classId: class2A.id, dayOfWeek: 5, period: 3, subjectId: sid("日本史探究") },
+    data: { userId: student2.id, classId: class2A.id, electiveGroup: "文理選択", subjectId: sid("日本史探究") },
   });
   await prisma.electiveChoice.create({
-    data: { userId: student3.id, classId: class1A.id, dayOfWeek: 3, period: 4, subjectId: sid("美術Ⅰ") },
+    data: { userId: student3.id, classId: class1A.id, electiveGroup: "芸術選択", subjectId: sid("美術Ⅰ") },
   });
 
   console.log("📝 課題(共有課題・個人課題)を作成しています...");

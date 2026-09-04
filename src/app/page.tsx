@@ -15,7 +15,6 @@ import { prisma } from "@/lib/db";
 import {
   todayJST,
   addDays,
-  dayOfWeek,
   formatJapaneseDate,
   formatMonthDay,
   daysUntil,
@@ -442,7 +441,6 @@ function DayBody({
     <TimetableList
       slots={day.slots}
       compact={compact}
-      dow={dayOfWeek(day.date)}
       choiceMap={choiceMap}
       classId={classId}
       editable={editable}

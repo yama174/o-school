@@ -7,6 +7,18 @@ const nextConfig: NextConfig = {
       bodySizeLimit: "5mb",
     },
   },
+  async redirects() {
+    return [
+      {
+        // www → wwwなしの正規URLへ301リダイレクト(Vercelのダッシュボード設定に頼らず、
+        // コードで管理することで「Claude Codeから変更しやすい」状態を保つ)
+        source: "/:path*",
+        has: [{ type: "host", value: "www.o-school.site" }],
+        destination: "https://o-school.site/:path*",
+        permanent: true,
+      },
+    ];
+  },
   async headers() {
     return [
       {

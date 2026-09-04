@@ -1,13 +1,23 @@
 // O-school - データベーススキーマ
 // PostgreSQL(Supabase)。
 //
-// 【接続方式についての注意】
-// SupabaseのTransaction mode pooler(ポート6543, ?pgbouncer=true)は、1リクエストの中で
-// 複数のクエリを並行実行するこのアプリのパターン(Server ComponentでのPromise.all多用)と
-// 相性が悪く、接続が枯渇してハング(応答なし)する現象を確認した。
-// そのため DATABASE_URL / DIRECT_URL とも、**Session mode pooler(ポート5432)**を使うこと。
-// 現在の利用規模(50人程度)であればSession modeで十分。将来的にアクセスが大幅に増えた場合は
-// Transaction modeへの切り替えとPrisma接続数のチューニングを再検討する(docs/PRODUCTION_PLAN.md参照)。
+// 【接続方式についての注意・実機検証で判明した内容(2026-09時点、最新)】
+// ローカル開発(1プロセスが永続稼働)とVercel本番(サーバーレス。リクエストごとに
+// 複数のインスタンスが同時に起動しうる)では、最適な接続方式が異なる。
+//
+// - **ローカル開発** (`.env`): DATABASE_URL / DIRECT_URL とも Session mode pooler
+//   (ポート5432)。1プロセスしか繋がないので問題ない。
+// - **Vercel本番** (Vercelの環境変数): DATABASE_URLは Transaction mode pooler
+//   (ポート6543, `?pgbouncer=true&connection_limit=1`)を使うこと。
+//   理由: Session mode poolerはこのSupabaseプランで同時接続数が15までしかなく、
+//   サーバーレスは1リクエストごとに別インスタンスが起動しうるため、Next.jsの
+//   Linkプリフェッチ程度の軽い同時アクセスでも "max clients reached in session
+//   mode" で本番エラーになることを実機で確認した。Transaction modeに
+//   `connection_limit=1`を付けると、1インスタンスがPrisma自身の接続プールを
+//   1本に絞るため、以前観測した「並行クエリでハングする」問題も併せて解消する。
+//   DIRECT_URLはビルド時の`prisma migrate deploy`でのみ短時間使われるだけなので、
+//   本番でも Session mode pooler(ポート5432)のままで問題ない。
+// 詳細はdocs/PRODUCTION_PLAN.mdの本番環境変数の章を参照。
 
 generator client {
   provider = "prisma-client-js"
@@ -130,20 +140,25 @@ model TimetableSlot {
   @@unique([classId, dayOfWeek, period, subjectId])
 }
 
-// ユーザーが選択科目のうちどれを履修しているか(同一枠に複数候補がある場合の選択)
+// ユーザーが選択科目のうちどれを履修しているか。
+//
+// 【設計変更】以前は (dayOfWeek, period) をキーにしていたが、時間割が週ごとに変わる
+// (同じ「火曜3限」でも先週と今週で全く違う内容になり得る)実運用に合わせ、
+// electiveGroup(例: "文理選択")をキーにする方式に変更した。これにより、
+// 生徒が「文理選択で化学基礎を履修している」という選択が、それがどの日・どの時限に
+// 配置されるかに関係なく、週が変わっても自動的に反映される。
 model ElectiveChoice {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  classId   String
-  class     Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
-  dayOfWeek Int
-  period    Int
-  subjectId String
-  subject   Subject  @relation(fields: [subjectId], references: [id])
-  updatedAt DateTime @updatedAt
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  classId       String
+  class         Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  electiveGroup String // 例: "文理選択"。空文字は使わず、選択科目には必ずグループ名を付ける運用とする
+  subjectId     String
+  subject       Subject  @relation(fields: [subjectId], references: [id])
+  updatedAt     DateTime @updatedAt
 
-  @@unique([userId, classId, dayOfWeek, period])
+  @@unique([userId, classId, electiveGroup])
 }
 
 // OverrideKind: "CUSTOM" | "NO_CLASS" (see src/lib/constants.ts)

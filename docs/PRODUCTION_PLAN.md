@@ -157,15 +157,20 @@
 
 | キー | 値の決め方 | 本番でVercelに設定 |
 |---|---|---|
-| `DATABASE_URL` | Supabaseの接続文字列。**Session pooler(ポート5432)を使うこと** | ユーザーがSupabaseから取得し、Vercelに貼り付け |
-| `DIRECT_URL` | 同上(`DATABASE_URL`と同じ値でよい) | Vercelに貼り付け |
+| `DATABASE_URL` | Supabaseの接続文字列。**本番はTransaction pooler(ポート6543)+`?pgbouncer=true&connection_limit=1`を使うこと**(理由は下の注意参照) | ユーザーがSupabaseから取得し、Vercelに貼り付け |
+| `DIRECT_URL` | Session pooler(ポート5432)。ビルド時の`prisma migrate deploy`でのみ使われる | Vercelに貼り付け |
 | `SESSION_SECRET` | 32文字以上のランダム文字列。Claude Codeが生成可能 | Vercelに貼り付け |
 | `SITE_URL` | `https://o-school.site` | Vercelに貼り付け |
 | `SCHOOL_INVITE_CODE` | 本番用の参加コード(デモ値`aobadai2026`から変更) | Vercelに貼り付け。デプロイ後は`/admin/security`からDB側の値をいつでも変更可能なので、この環境変数は初期値として使われるだけ |
 
 すべて**サーバー専用**の値で、`NEXT_PUBLIC_`は使わない(クライアントに一切送信されない)。
 
-> **実機検証で分かった重要な注意**: SupabaseのTransaction mode pooler(ポート6543, `?pgbouncer=true`)は、このアプリがページ1回の表示で複数のクエリを並行実行するパターン(Server ComponentでのPromise.all多用)と相性が悪く、接続がハングして応答が返らなくなる現象を確認した。**`DATABASE_URL`・`DIRECT_URL`とも、必ずポート5432(Session pooler)の接続文字列を使うこと。** ポート6543の文字列は使わない。
+> **実機検証で分かった重要な注意(2026-09、本番公開作業時に更新)**: ローカル開発(1プロセスが永続稼働)と、Vercel本番(サーバーレス。リクエストごとに複数のインスタンスが同時に起動しうる)では、最適な接続方式が異なることが実機で判明した。
+>
+> - ローカル開発では、DATABASE_URL・DIRECT_URLとも**Session mode pooler(ポート5432)**で問題ない(1プロセスしか繋がないため)。
+> - **本番(Vercel)でSession mode poolerを使うと、"max clients reached in session mode"(同時接続数上限エラー、このSupabaseプランでは15)が実際に発生した。** サーバーレスは1リクエストごとに別インスタンスが起動しうるため、Next.jsのLinkプリフェッチ程度の軽いアクセスでもすぐに上限に達してしまう。
+> - そのため**本番の`DATABASE_URL`は、Transaction mode pooler(ポート6543)+ `?pgbouncer=true&connection_limit=1` を使うこと。** `connection_limit=1`を付けることで、1インスタンスがPrisma自身の接続プールを1本に絞るため、これ以前に観測していた「並行クエリでハングする」問題も併せて解消することを確認した。
+> - `DIRECT_URL`はビルド時の`prisma migrate deploy`で短時間しか使われないため、本番でもSession mode pooler(ポート5432)のままで問題ない。
 
 ---
 
@@ -188,3 +193,24 @@
 - **監視**: Vercelのダッシュボードで基本的なアクセス状況・エラーログを確認できる(無料枠内)。エラー監視を強化したい場合はSentry(無料枠あり)の追加を検討。
 - **バックアップ**: Supabase無料プランには自動バックアップが含まれないため、`pg_dump`による手動バックアップを月1回程度実施することを推奨(コマンドはDEPLOYMENT.mdに記載)。
 - **参加コードのローテーション**: 漏洩が疑われる場合は`/admin/security`から即座に変更可能(既存ユーザーは自動ログアウトされない設計)。
+
+---
+
+## 13. 実施結果(2026-09-05 デプロイ完了時点)
+
+このプランに基づき、実際に本番公開まで完了した。現時点の状態を記録する。
+
+- **Vercelプロジェクト**: `o-school`(アカウント`yama174`)。CLIのアクセストークンを本人から一度だけ受け取り、以降は`vercel`コマンドで環境変数設定・デプロイ・ドメイン追加まで実行した。
+- **公開URL**: `https://o-school-lilac.vercel.app`(Vercelの`*.vercel.app`エイリアス)。カスタムドメイン`o-school.site`/`www.o-school.site`はVercel側には追加済みだが、**Cloudflare側のDNSレコード追加(ユーザー操作)がまだ完了していない**ため、まだ有効化されていない([9章](#9-dns設定方針)参照。必要なレコードはVercelが`vercel domains inspect`で提示: `A o-school.site 76.76.21.21` / `A www.o-school.site 76.76.21.21`)。
+- **www→wwwなしのリダイレクト**: Vercelダッシュボードの設定に頼らず、`next.config.ts`の`redirects()`にコードとして実装した(Gitで管理され、Claude Codeから変更しやすい状態を保つため)。
+- **本番DB(Supabase `sifvrzhjdszedtjfajpu`)へ投入した最小限データ**: `scripts/seed-production-minimal.ts`を作成し、以下を投入(既存データがある場合は壊さない設計):
+  - School 1件(DB内部のみの中立的な名前。画面には表示されない設計を維持)
+  - Grade「3年」・Class「3年1組」(ユーザー本人の実際の学年・クラス。他の学年・クラスは今後必要になった時点で追加する。**現時点では追加用の管理画面がないため、追加時はこのスクリプトと同様の手順が必要**)
+  - 管理者アカウント`yamaguch1`(パスワードはClaude Codeがランダム生成し、チャット上でのみ本人に共有。リポジトリには残していない)
+  - SiteSetting(参加コード等の初期値)
+- **本番用シークレット**: `SESSION_SECRET`を新規ランダム生成、`SCHOOL_INVITE_CODE`は8桁ランダムコードを生成してVercelに設定済み(値はチャット上で本人にのみ共有)。
+- **デプロイ後に発見・修正した問題**: 本番投入直後、管理画面ログイン後に`/admin/timetable`等でエラーが発生。Vercelの実行ログを確認したところ`FATAL: max clients reached in session mode`(Supabase Session mode poolerの同時接続数上限、この構成では15)が原因だった。ローカル開発(1プロセス常駐)ではSession mode poolerで問題なかったが、**Vercelのサーバーレス環境(リクエストごとに複数インスタンスが同時起動しうる)では同時接続数がすぐに上限に達する**ことが実機で判明。本番の`DATABASE_URL`を Transaction mode pooler(ポート6543)+ `?pgbouncer=true&connection_limit=1` に変更して再デプロイし、解消を確認した(詳細は[10章](#10-本番環境の環境変数)に反映済み)。
+- **動作確認**: Playwrightで実ブラウザから、①参加コードでゲート通過→時間割ページ表示、②管理者ログイン→管理画面(週ごとの時間割編集画面)表示、の両方が本番URLで正常に動作することを確認した。20件の同時アクセスでも接続エラーが再発しないことも確認済み。
+- **未完了(ユーザーの残タスク)**:
+  1. Cloudflareで上記DNSレコード(`A`レコード2件)を追加する
+  2. (任意・後回し可)VercelダッシュボードでGitHubリポジトリとの連携を承認する(`vercel git connect`、これができると`git push`だけで自動デプロイされる。今は`vercel --prod`で手動デプロイしている)

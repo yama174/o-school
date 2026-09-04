@@ -78,6 +78,13 @@ export function buildMonthGrid(
   return weeks;
 }
 
+/** 指定日を含む週の月曜日を返す(月曜始まり)。 */
+export function startOfWeekMonday(date: Date): Date {
+  const dow = dayOfWeek(date); // 0=日...6=土
+  const offset = dow === 0 ? -6 : 1 - dow; // 日曜だけ前の月曜まで6日戻る
+  return addDays(date, offset);
+}
+
 const WEEKDAY_KANJI = ["日", "月", "火", "水", "木", "金", "土"];
 
 export function formatJapaneseDate(date: Date): string {

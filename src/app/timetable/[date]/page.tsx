@@ -4,7 +4,7 @@ import { requireGateOrLogin } from "@/lib/gate";
 import { getViewerClass } from "@/lib/school";
 import { prisma } from "@/lib/db";
 import { getDayTimetable, getElectiveChoiceMap } from "@/lib/timetable";
-import { parseYMD, formatJapaneseDate, formatYMD, addDays, dayOfWeek } from "@/lib/date";
+import { parseYMD, formatJapaneseDate, formatYMD, addDays } from "@/lib/date";
 import { Card, PageHeader, Badge } from "@/components/ui";
 import { TimetableList } from "@/components/TimetableList";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -80,7 +80,6 @@ export default async function DayTimetablePage({
         {(day.kind === "NORMAL" || day.kind === "CUSTOM") && day.slots.length > 0 && (
           <TimetableList
             slots={day.slots}
-            dow={dayOfWeek(date)}
             choiceMap={choiceMap}
             classId={klass.id}
             editable={isOwnClass}

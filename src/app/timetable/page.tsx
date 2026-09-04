@@ -4,7 +4,7 @@ import { requireGateOrLogin } from "@/lib/gate";
 import { getViewerClass } from "@/lib/school";
 import { getMonthTimetable, getElectiveChoiceMap, resolveCandidate } from "@/lib/timetable";
 import { prisma } from "@/lib/db";
-import { buildMonthGrid, formatYMD, todayJST, dayOfWeek } from "@/lib/date";
+import { buildMonthGrid, formatYMD, todayJST } from "@/lib/date";
 import { PageHeader, Card } from "@/components/ui";
 import { AdSlot } from "@/components/AdSlot";
 import { ClassSwitcher } from "@/components/ClassSwitcher";
@@ -159,7 +159,6 @@ function CalendarView({
             const key = formatYMD(date);
             const day = dayByKey.get(key);
             const isToday = key === todayKey;
-            const dow = dayOfWeek(date);
             return (
               <Link
                 key={key}
@@ -182,7 +181,7 @@ function CalendarView({
                     ) : (
                       <span className="flex flex-wrap justify-center gap-[1.5px] px-0.5">
                         {day.slots.slice(0, 6).map((s, i) => {
-                          const chosen = resolveCandidate(s, choiceMap, dow) ?? s.candidates[0];
+                          const chosen = resolveCandidate(s, choiceMap) ?? s.candidates[0];
                           return (
                             <span
                               key={i}
@@ -220,7 +219,6 @@ function ListView({
         {days.map((day) => {
           const key = formatYMD(day.date);
           const isToday = key === todayKey;
-          const dow = dayOfWeek(day.date);
           return (
             <Link
               key={key}
@@ -253,7 +251,7 @@ function ListView({
                     )}
                     {day.slots
                       .map((s) => {
-                        const chosen = resolveCandidate(s, choiceMap, dow);
+                        const chosen = resolveCandidate(s, choiceMap);
                         return chosen ? chosen.subjectName : s.candidates.map((c) => c.subjectName).join("/");
                       })
                       .join(" / ") || "時間割未登録"}
