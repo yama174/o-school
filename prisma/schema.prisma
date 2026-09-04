@@ -1,6 +1,13 @@
 // O-school - データベーススキーマ
-// PostgreSQL(Supabase)。DATABASE_URL はコネクションプーラー経由(pgbouncer=true)、
-// DIRECT_URL はマイグレーション用の直接接続(Session pooler)。
+// PostgreSQL(Supabase)。
+//
+// 【接続方式についての注意】
+// SupabaseのTransaction mode pooler(ポート6543, ?pgbouncer=true)は、1リクエストの中で
+// 複数のクエリを並行実行するこのアプリのパターン(Server ComponentでのPromise.all多用)と
+// 相性が悪く、接続が枯渇してハング(応答なし)する現象を確認した。
+// そのため DATABASE_URL / DIRECT_URL とも、**Session mode pooler(ポート5432)**を使うこと。
+// 現在の利用規模(50人程度)であればSession modeで十分。将来的にアクセスが大幅に増えた場合は
+// Transaction modeへの切り替えとPrisma接続数のチューニングを再検討する(docs/PRODUCTION_PLAN.md参照)。
 
 generator client {
   provider = "prisma-client-js"

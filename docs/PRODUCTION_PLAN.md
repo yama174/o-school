@@ -157,12 +157,15 @@
 
 | キー | 値の決め方 | 本番でVercelに設定 |
 |---|---|---|
-| `DATABASE_URL` | Supabaseの接続文字列(Session pooler推奨) | ユーザーがSupabaseから取得し、Vercelに貼り付け |
+| `DATABASE_URL` | Supabaseの接続文字列。**Session pooler(ポート5432)を使うこと** | ユーザーがSupabaseから取得し、Vercelに貼り付け |
+| `DIRECT_URL` | 同上(`DATABASE_URL`と同じ値でよい) | Vercelに貼り付け |
 | `SESSION_SECRET` | 32文字以上のランダム文字列。Claude Codeが生成可能 | Vercelに貼り付け |
 | `SITE_URL` | `https://o-school.site` | Vercelに貼り付け |
 | `SCHOOL_INVITE_CODE` | 本番用の参加コード(デモ値`aobadai2026`から変更) | Vercelに貼り付け。デプロイ後は`/admin/security`からDB側の値をいつでも変更可能なので、この環境変数は初期値として使われるだけ |
 
 すべて**サーバー専用**の値で、`NEXT_PUBLIC_`は使わない(クライアントに一切送信されない)。
+
+> **実機検証で分かった重要な注意**: SupabaseのTransaction mode pooler(ポート6543, `?pgbouncer=true`)は、このアプリがページ1回の表示で複数のクエリを並行実行するパターン(Server ComponentでのPromise.all多用)と相性が悪く、接続がハングして応答が返らなくなる現象を確認した。**`DATABASE_URL`・`DIRECT_URL`とも、必ずポート5432(Session pooler)の接続文字列を使うこと。** ポート6543の文字列は使わない。
 
 ---
 
