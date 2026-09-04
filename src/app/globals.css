@@ -1,0 +1,114 @@
+@import "tailwindcss";
+
+/*
+ * デザインコンセプト: 「O」(円・軌道)× 白 × 水色 × 空 × 飛行機
+ * 白をベースに水色をアクセントとして使い、学校サイトっぽい古臭さを避けた
+ * 「毎日開きたくなるアプリ」らしい軽やかなトーンを目指す。
+ */
+
+:root {
+  --bg: #f4f9ff;
+  --surface: #ffffff;
+  --surface-muted: #eaf4fd;
+  --border: #dceaf7;
+  --text: #10151f;
+  --text-muted: #55637a;
+  --text-faint: #8c9bb3;
+  --primary: #0ea5e9;
+  --primary-hover: #0284c7;
+  --primary-soft: #e0f4ff;
+  --accent: #f59e0b;
+  --danger: #dc2626;
+  --danger-soft: #fde8e8;
+  --success: #16a34a;
+  --success-soft: #e6f6ec;
+  --sky-gradient: linear-gradient(160deg, #eaf7ff 0%, #f8fdff 45%, #ffffff 100%);
+}
+
+[data-theme="dark"] {
+  --bg: #0b1420;
+  --surface: #101c2c;
+  --surface-muted: #16263a;
+  --border: #1f3349;
+  --text: #eef4fb;
+  --text-muted: #9db0c8;
+  --text-faint: #6c8098;
+  --primary: #38bdf8;
+  --primary-hover: #7dd3fc;
+  --primary-soft: #143047;
+  --accent: #fbbf24;
+  --danger: #f87171;
+  --danger-soft: #3a1f22;
+  --success: #4ade80;
+  --success-soft: #17301f;
+  --sky-gradient: linear-gradient(160deg, #0b1626 0%, #0b1420 60%, #0b1420 100%);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0b1420;
+    --surface: #101c2c;
+    --surface-muted: #16263a;
+    --border: #1f3349;
+    --text: #eef4fb;
+    --text-muted: #9db0c8;
+    --text-faint: #6c8098;
+    --primary: #38bdf8;
+    --primary-hover: #7dd3fc;
+    --primary-soft: #143047;
+    --accent: #fbbf24;
+    --danger: #f87171;
+    --danger-soft: #3a1f22;
+    --success: #4ade80;
+    --success-soft: #17301f;
+    --sky-gradient: linear-gradient(160deg, #0b1626 0%, #0b1420 60%, #0b1420 100%);
+  }
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-border: var(--border);
+  --color-text: var(--text);
+  --color-text-muted: var(--text-muted);
+  --color-text-faint: var(--text-faint);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-soft: var(--primary-soft);
+  --color-accent: var(--accent);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --font-sans: var(--font-noto-sans-jp), ui-sans-serif, system-ui, sans-serif;
+}
+
+html {
+  color-scheme: light dark;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+}
+
+* {
+  border-color: var(--border);
+}
+
+::selection {
+  background: var(--primary-soft);
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-none {
+  scrollbar-width: none;
+}
+
+/* 空を思わせる淡いグラデーション背景(ヘッダー・トップページの雲間に使用) */
+.bg-sky-gradient {
+  background: var(--sky-gradient);
+}

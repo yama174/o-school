@@ -1,0 +1,464 @@
+// 学校生活ポータル - データベーススキーマ
+// SQLite for local development. See README for Postgres(Supabase) migration.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// 組織構造: 学校 > 学年 > クラス > ユーザー
+// ---------------------------------------------------------------------------
+
+model School {
+  id        String   @id @default(cuid())
+  name      String
+  code      String   @unique // URLやログインコードに使う短い識別子
+  createdAt DateTime @default(now())
+
+  grades       Grade[]
+  subjects     Subject[]
+  events       Event[]
+  announcements Announcement[]
+  siteSettings SiteSetting?
+}
+
+model Grade {
+  id       String @id @default(cuid())
+  name     String // 例: 高校3年
+  order    Int
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  classes     Class[]
+  assignments Assignment[]
+}
+
+model Class {
+  id      String @id @default(cuid())
+  name    String // 例: 3年A組
+  gradeId String
+  grade   Grade  @relation(fields: [gradeId], references: [id], onDelete: Cascade)
+
+  users            User[]
+  timetableSlots   TimetableSlot[]
+  dailyOverrides   DailyOverride[]
+  assignments      Assignment[]
+  electiveChoices  ElectiveChoice[]
+}
+
+// Role: "STUDENT" | "ADMIN" (see src/lib/constants.ts)
+model User {
+  id           String   @id @default(cuid())
+  loginId      String   @unique // メールアドレス等は使わずログインIDのみ収集
+  nickname     String
+  passwordHash String
+  role         String   @default("STUDENT")
+  classId      String?
+  class        Class?   @relation(fields: [classId], references: [id])
+  suspended    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  // 管理者向け二段階認証(TOTP)。一般生徒アカウントでは常にnull/false。
+  mfaSecret  String?
+  mfaEnabled Boolean @default(false)
+
+  attendanceRecords     AttendanceRecord[]
+  assignmentCompletions AssignmentCompletion[]
+  createdAssignments    Assignment[]
+  electiveChoices       ElectiveChoice[]
+  shopPhotos            ShopPhoto[]
+  shopReviews           ShopReview[]
+  shopReports           ShopReport[]
+
+  // レガシー: 旧・汎用口コミ機能(学校生活全般の掲示板)。2で「お店の口コミ」機能に置き換え、
+  // UI・ルートからは完全に外したが、過去データは物理削除せずDBに保持している。
+  posts     Post[]
+  postLikes PostLike[]
+  reports   Report[]
+}
+
+// ---------------------------------------------------------------------------
+// 教科・時間割
+// ---------------------------------------------------------------------------
+
+model Subject {
+  id       String @id @default(cuid())
+  name     String
+  colorHex String @default("#6366f1")
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  timetableSlots       TimetableSlot[]
+  dailyOverrideSlots   DailyOverrideSlot[]
+  assignments          Assignment[]
+  electiveChoices      ElectiveChoice[]
+}
+
+// 通常の週間ベース時間割（曜日×時限）
+//
+// 同じ classId + dayOfWeek + period に「複数のSubject行」を登録できる。
+// これは「選択科目(同じクラス・同じ時限に複数の候補授業がある)」を表現するための設計。
+// - electiveGroup が同じ行同士が「同じ選択科目グループ」とみなされる(例: "文理選択")
+// - 1行しかない場合は従来どおり通常の1コマとして扱われる
+// - クラスが異なれば別レコードなので、クラスごとに違う教科を割り当てることも自然にできる
+//   (例: 3年A組=数学Ⅲ, 3年B組=日本史探究)
+model TimetableSlot {
+  id            String  @id @default(cuid())
+  classId       String
+  class         Class   @relation(fields: [classId], references: [id], onDelete: Cascade)
+  dayOfWeek     Int // 0=日,1=月,...6=土
+  period        Int // 1限, 2限...
+  subjectId     String
+  subject       Subject @relation(fields: [subjectId], references: [id])
+  teacher       String? // 担当(任意)
+  electiveGroup String? // 選択科目グループ名(例: "文理選択")。nullなら選択科目ではない通常コマ
+
+  @@unique([classId, dayOfWeek, period, subjectId])
+}
+
+// ユーザーが選択科目のうちどれを履修しているか(同一枠に複数候補がある場合の選択)
+model ElectiveChoice {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  classId   String
+  class     Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  dayOfWeek Int
+  period    Int
+  subjectId String
+  subject   Subject  @relation(fields: [subjectId], references: [id])
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, classId, dayOfWeek, period])
+}
+
+// OverrideKind: "CUSTOM" | "NO_CLASS" (see src/lib/constants.ts)
+// 日付ごとの時間割変更(特定の日だけ通常時間割を上書き)
+model DailyOverride {
+  id      String   @id @default(cuid())
+  classId String
+  class   Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  date    DateTime // その日の 00:00 (UTC不問、日付のみ使用)
+  kind    String
+  title   String? // 例: 体育祭準備, 体育祭, 午前授業
+  note    String?
+
+  slots DailyOverrideSlot[]
+
+  @@unique([classId, date])
+}
+
+// 通常のTimetableSlotと同様、同じ(overrideId, period)に複数行を登録すると
+// その日だけの「選択科目」として扱える(例: 特定の日だけ数学Ⅲ/日本史探究のどちらか)。
+model DailyOverrideSlot {
+  id            String        @id @default(cuid())
+  overrideId    String
+  override      DailyOverride @relation(fields: [overrideId], references: [id], onDelete: Cascade)
+  period        Int
+  subjectId     String
+  subject       Subject       @relation(fields: [subjectId], references: [id])
+  teacher       String? // 担当(任意)
+  electiveGroup String? // 選択科目グループ名(任意)
+
+  @@unique([overrideId, period, subjectId])
+}
+
+// ---------------------------------------------------------------------------
+// 課題
+// ---------------------------------------------------------------------------
+
+// Visibility: "SHARED"(同じ学年/クラスの誰でも見られる) | "PERSONAL"(投稿者本人しか見えない)
+//
+// SHARED の場合: gradeId は必須(対象学年)、classId は任意(nullなら学年内の全クラス対象)
+// PERSONAL の場合: gradeId/classId は参考情報として残すが、表示は creatorId 本人のみに絞る
+// 投稿者名は(生徒による共有課題であっても)個人が特定されないよう「匿名ユーザー」として表示する
+model Assignment {
+  id          String   @id @default(cuid())
+  creatorId   String
+  creator     User     @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  visibility  String   @default("SHARED")
+  gradeId     String?
+  grade       Grade?   @relation(fields: [gradeId], references: [id], onDelete: Cascade)
+  classId     String?
+  class       Class?   @relation(fields: [classId], references: [id], onDelete: Cascade)
+  subjectId   String
+  subject     Subject  @relation(fields: [subjectId], references: [id])
+  title       String
+  description String?
+  dueDate     DateTime
+  createdAt   DateTime @default(now())
+
+  completions AssignmentCompletion[]
+}
+
+model AssignmentCompletion {
+  id           String     @id @default(cuid())
+  assignmentId String
+  assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  completedAt  DateTime   @default(now())
+
+  @@unique([assignmentId, userId])
+}
+
+// ---------------------------------------------------------------------------
+// 学校行事
+// ---------------------------------------------------------------------------
+
+model Event {
+  id          String   @id @default(cuid())
+  schoolId    String
+  school      School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  date        DateTime
+  title       String
+  description String?
+  createdAt   DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// 出席管理(自己申告・個人記録)
+// ---------------------------------------------------------------------------
+
+// AttendanceStatus: "ABSENT" | "LATE" | "EARLY_LEAVE" | "EXCUSED" (see src/lib/constants.ts)
+model AttendanceRecord {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date      DateTime
+  status    String
+  note      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, date, status])
+}
+
+// ---------------------------------------------------------------------------
+// [レガシー] 旧・生徒口コミ(学校生活全般の汎用掲示板)
+//
+// 2度目の改修で「大空町のお店の口コミ」機能に一本化するため、UI・ルートからは
+// 完全に外した(/community 等は削除済み)。既存の投稿データは安全のため物理削除せず、
+// このテーブルにそのまま保持している。DBを直接確認すれば過去データを参照できる。
+// 新しい投稿・報告はこのテーブルには一切書き込まれない。
+// ---------------------------------------------------------------------------
+
+// PostCategory: SCHOOL_LIFE|STUDY|CLUB|EVENT|AFTER_SCHOOL|AROUND_SCHOOL|OTHER
+// PostStatus: "PUBLISHED" | "REMOVED" (see src/lib/constants.ts)
+model Post {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  nickname  String // 投稿時点のニックネームを保持(後で変更されても表示は当時のまま)
+  category  String
+  body      String
+  status    String   @default("PUBLISHED")
+  createdAt DateTime @default(now())
+
+  likes   PostLike[]
+  reports Report[]
+}
+
+model PostLike {
+  id     String @id @default(cuid())
+  postId String
+  post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+}
+
+// ReportStatus: "PENDING" | "REVIEWED" | "DISMISSED" (see src/lib/constants.ts)
+model Report {
+  id             String   @id @default(cuid())
+  postId         String
+  post           Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  reporterUserId String
+  reporter       User     @relation(fields: [reporterUserId], references: [id], onDelete: Cascade)
+  reason         String
+  note           String?
+  status         String   @default("PENDING")
+  createdAt      DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// お知らせ
+// ---------------------------------------------------------------------------
+
+model Announcement {
+  id          String   @id @default(cuid())
+  schoolId    String
+  school      School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  title       String
+  body        String
+  publishedAt DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// 広告枠 & サイト設定
+// ---------------------------------------------------------------------------
+
+model AdSlot {
+  id        String   @id @default(cuid())
+  placement String   @unique // 例: monthly-timetable-bottom
+  label     String
+  adCode    String? // 広告タグ(例: Google AdSense の <ins> コード等)。nullならプレースホルダー表示
+  enabled   Boolean  @default(true)
+  updatedAt DateTime @updatedAt
+}
+
+model SiteSetting {
+  id                 String  @id @default(cuid())
+  schoolId           String  @unique
+  school             School  @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  visibilityMode     String  @default("HYBRID") // SCHOOL_ONLY | PUBLIC | HYBRID
+  adsGloballyEnabled Boolean @default(true)
+
+  // 参加コード(生徒向け新規登録 & 時間割ゲート閲覧の両方で使う共通の合言葉)。
+  // DB上で管理者が変更できるようにするためのフィールド。nullの場合は
+  // 環境変数 SCHOOL_INVITE_CODE をフォールバックとして使う(後方互換)。
+  // コードを変更しても、既にログイン済みのユーザーや既にゲートを通過した
+  // ブラウザ(Cookie)は自動的には無効化されない(新規参加者だけ新コードが必要)。
+  inviteCode String?
+}
+
+// ---------------------------------------------------------------------------
+// お問い合わせ(必要最小限の情報のみ保存)
+// ---------------------------------------------------------------------------
+
+model Inquiry {
+  id        String   @id @default(cuid())
+  subject   String
+  body      String
+  replyTo   String? // 返信先(任意入力。保存の必要性を都度見直すこと)
+  status    String   @default("PENDING") // PENDING | RESOLVED
+  createdAt DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// 大空町のお店(地域店舗情報)
+// ---------------------------------------------------------------------------
+
+model ShopRegion {
+  id    String @id @default(cuid())
+  name  String // 東藻琴 / 女満別
+  slug  String @unique
+  order Int
+
+  shops Shop[]
+}
+
+model ShopCategory {
+  id    String @id @default(cuid())
+  name  String // グルメ, カフェ, スイーツ, 買い物, 観光, その他
+  slug  String @unique
+  order Int
+
+  shops Shop[]
+}
+
+model Shop {
+  id            String   @id @default(cuid())
+  name          String
+  regionId      String
+  region        ShopRegion   @relation(fields: [regionId], references: [id])
+  categoryId    String
+  category      ShopCategory @relation(fields: [categoryId], references: [id])
+  description   String?
+  address       String?
+  businessHours String? // 例: "11:00-19:00(L.O.18:30)"
+  closedDays    String? // 例: "水曜定休"
+  phone         String?
+  mapUrl        String? // Googleマップ等へのリンク(手動入力 or 住所から自動生成)
+  coverImage    String? // data URI(base64)。任意
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  photos  ShopPhoto[]
+  reviews ShopReview[]
+}
+
+// PhotoStatus: "PUBLISHED" | "REMOVED"
+model ShopPhoto {
+  id        String   @id @default(cuid())
+  shopId    String
+  shop      Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  nickname  String
+  imageData String // data:image/...;base64,... 形式。サーバー側でサイズ・MIMEを検証済み
+  foodName  String? // 何を食べたか
+  comment   String?
+  status    String   @default("PUBLISHED")
+  createdAt DateTime @default(now())
+
+  reports ShopReport[]
+}
+
+// ReviewStatus: "PUBLISHED" | "REMOVED"
+model ShopReview {
+  id        String   @id @default(cuid())
+  shopId    String
+  shop      Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  nickname  String
+  rating    Int // 1-5
+  comment   String
+  status    String   @default("PUBLISHED")
+  createdAt DateTime @default(now())
+
+  reports ShopReport[]
+}
+
+// TargetType: "PHOTO" | "REVIEW"
+// ReportStatus: "PENDING" | "REVIEWED" | "DISMISSED"
+model ShopReport {
+  id             String   @id @default(cuid())
+  targetType     String
+  photoId        String?
+  photo          ShopPhoto?  @relation(fields: [photoId], references: [id], onDelete: Cascade)
+  reviewId       String?
+  review         ShopReview? @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  reporterUserId String
+  reporter       User        @relation(fields: [reporterUserId], references: [id], onDelete: Cascade)
+  reason         String
+  note           String?
+  status         String      @default("PENDING")
+  createdAt      DateTime    @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// O-schoolの記事(管理者が投稿する読み物コンテンツ)
+// ---------------------------------------------------------------------------
+
+model ArticleCategory {
+  id    String @id @default(cuid())
+  name  String // 例: 大空町のお店紹介, 勉強法, 学校生活, 地域イベント, 開発日記
+  slug  String @unique
+  order Int
+
+  articles Article[]
+}
+
+// ArticleStatus: "DRAFT" | "PUBLISHED"
+model Article {
+  id          String   @id @default(cuid())
+  title       String
+  excerpt     String? // 一覧・SNS共有用の短い要約
+  body        String // 本文(プレーンテキスト、改行を保持して表示)
+  thumbnail   String? // data URI(base64)。任意
+  categoryId  String
+  category    ArticleCategory @relation(fields: [categoryId], references: [id])
+  authorName  String   @default("O-school編集部")
+  status      String   @default("PUBLISHED")
+  publishedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
