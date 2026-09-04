@@ -1,13 +1,15 @@
-// 学校生活ポータル - データベーススキーマ
-// SQLite for local development. See README for Postgres(Supabase) migration.
+// O-school - データベーススキーマ
+// PostgreSQL(Supabase)。DATABASE_URL はコネクションプーラー経由(pgbouncer=true)、
+// DIRECT_URL はマイグレーション用の直接接続(Session pooler)。
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // ---------------------------------------------------------------------------

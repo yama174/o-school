@@ -1,0 +1,41 @@
+-- Supabaseは新しいプロジェクトのpublicスキーマに対して、自動的にPostgREST(REST API)と
+-- GraphQL APIを有効化する。このアプリはPrisma経由でのみDBへ接続し、Supabaseが自動公開する
+-- そのAPIは一切使わないが、Row Level Security(RLS)を有効化しないままだと、そのAPI経由で
+-- 誰でも生テーブル(パスワードハッシュを含むUserテーブル等)へアクセスできる可能性がある。
+--
+-- 対策として、全テーブルでRLSを有効化し、ポリシーを一切追加しない(=デフォルト拒否)。
+-- これにより、Supabase自動生成API経由のアクセスは実質的に完全に遮断される。
+-- Prismaは(このマイグレーションで使っている)postgresロール = テーブル所有者ロールで
+-- 接続しており、Postgresの仕様上テーブル所有者はRLSの制限を受けないため、
+-- アプリの動作には一切影響しない。
+--
+-- 詳細な設計判断は docs/PRODUCTION_PLAN.md の「6. Supabase と RLS についての設計判断」を参照。
+
+ALTER TABLE "AdSlot" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "Announcement" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "Article" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "ArticleCategory" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "Assignment" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "AssignmentCompletion" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "AttendanceRecord" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "Class" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "DailyOverride" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "DailyOverrideSlot" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "ElectiveChoice" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "Event" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "Grade" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "Inquiry" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "Post" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "PostLike" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "Report" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "School" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "Shop" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "ShopCategory" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "ShopPhoto" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "ShopRegion" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "ShopReport" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "ShopReview" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "SiteSetting" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "Subject" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "TimetableSlot" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "User" ENABLE ROW LEVEL SECURITY;
