@@ -42,6 +42,19 @@ export default async function ShopDetailPage({ params }: PageProps<"/shops/[id]"
 
       <Card className="mb-4">
         {shop.description && <p className="mb-3 text-sm">{shop.description}</p>}
+        {shop.tags.length > 0 && (
+          <div className="mb-3 flex flex-wrap gap-1.5">
+            {shop.tags.map((t) => (
+              <Link
+                key={t}
+                href={`/shops?tag=${encodeURIComponent(t)}`}
+                className="rounded-full bg-[var(--surface-muted)] px-2.5 py-1 text-[11px] font-semibold text-[var(--primary)]"
+              >
+                #{t}
+              </Link>
+            ))}
+          </div>
+        )}
         <dl className="flex flex-col gap-2 text-sm">
           {shop.businessHours && (
             <div className="flex items-start gap-2">

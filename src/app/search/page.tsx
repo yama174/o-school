@@ -53,7 +53,9 @@ export default async function SearchPage({
             })
           : Promise.resolve([]),
         prisma.shop.findMany({
-          where: { OR: [{ name: { contains: q } }, { description: { contains: q } }] },
+          where: {
+            OR: [{ name: { contains: q } }, { description: { contains: q } }, { tags: { has: q } }],
+          },
           include: { region: true, category: true },
           take: 20,
         }),

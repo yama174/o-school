@@ -1,36 +1,39 @@
 import Link from "next/link";
-import { listRegions, listCategories, listShops } from "@/lib/shops";
+import { listRegions, listCategories, listShops, listPopularTags } from "@/lib/shops";
 import { PageHeader, Card, EmptyState } from "@/components/ui";
 import { StarRatingDisplay } from "@/components/StarRating";
 import { AdSlot } from "@/components/AdSlot";
 import clsx from "clsx";
-import { MapPin } from "lucide-react";
+import { MapPin, Hash } from "lucide-react";
 
-export const metadata = { title: "大空町のお店" };
+export const metadata = { title: "地域のお店" };
 
 export default async function ShopsPage({ searchParams }: PageProps<"/shops">) {
   const sp = await searchParams;
   const regionSlug = typeof sp.region === "string" ? sp.region : undefined;
   const categorySlug = typeof sp.category === "string" ? sp.category : undefined;
+  const tag = typeof sp.tag === "string" ? sp.tag : undefined;
 
-  const [regions, categories, shops] = await Promise.all([
+  const [regions, categories, shops, popularTags] = await Promise.all([
     listRegions(),
     listCategories(),
-    listShops({ regionSlug, categorySlug }),
+    listShops({ regionSlug, categorySlug, tag }),
+    listPopularTags(),
   ]);
 
   const qs = (overrides: Record<string, string | undefined>) => {
     const params = new URLSearchParams();
-    const next = { region: regionSlug, category: categorySlug, ...overrides };
+    const next = { region: regionSlug, category: categorySlug, tag, ...overrides };
     if (next.region) params.set("region", next.region);
     if (next.category) params.set("category", next.category);
+    if (next.tag) params.set("tag", next.tag);
     const s = params.toString();
     return s ? `/shops?${s}` : "/shops";
   };
 
   return (
     <div className="pb-6">
-      <PageHeader title="大空町のお店" description="東藻琴・女満別エリアのお店情報と、みんなの口コミです。" />
+      <PageHeader title="地域のお店" description="周辺エリアのお店情報と、みんなの口コミです。" />
 
       <div className="mb-3 flex gap-1.5 overflow-x-auto scrollbar-none pb-1">
         <Link
@@ -80,6 +83,24 @@ export default async function ShopsPage({ searchParams }: PageProps<"/shops">) {
         ))}
       </div>
 
+      {popularTags.length > 0 && (
+        <div className="mb-4 flex flex-wrap items-center gap-1.5">
+          <Hash size={13} className="text-[var(--text-faint)]" />
+          {popularTags.map((t) => (
+            <Link
+              key={t}
+              href={qs({ tag: tag === t ? undefined : t })}
+              className={clsx(
+                "rounded-full px-2.5 py-1 text-[11px] font-semibold",
+                tag === t ? "bg-[var(--primary)] text-white" : "bg-[var(--surface-muted)] text-[var(--text-muted)]"
+              )}
+            >
+              #{t}
+            </Link>
+          ))}
+        </div>
+      )}
+
       {shops.length === 0 ? (
         <EmptyState title="お店が見つかりません" />
       ) : (
@@ -93,6 +114,11 @@ export default async function ShopsPage({ searchParams }: PageProps<"/shops">) {
                 <p className="font-bold">{s.name}</p>
                 {s.description && (
                   <p className="mt-1 line-clamp-2 text-xs text-[var(--text-muted)]">{s.description}</p>
+                )}
+                {s.tags.length > 0 && (
+                  <p className="mt-1 truncate text-[11px] text-[var(--primary)]">
+                    {s.tags.map((t) => `#${t}`).join(" ")}
+                  </p>
                 )}
                 <div className="mt-2 flex items-center gap-1.5 text-xs">
                   {s.averageRating !== null ? (

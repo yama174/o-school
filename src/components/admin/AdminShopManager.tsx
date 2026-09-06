@@ -24,6 +24,7 @@ interface Shop {
   closedDays: string | null;
   phone: string | null;
   mapUrl: string | null;
+  tags: string[];
 }
 
 const initialState: ActionState = {};
@@ -68,6 +69,11 @@ function ShopRow({ shop, onEdit }: { shop: Shop; onEdit: () => void }) {
           {shop.regionName} ・ {shop.categoryName}
         </p>
         <p className="truncate text-sm font-semibold">{shop.name}</p>
+        {shop.tags.length > 0 && (
+          <p className="mt-0.5 truncate text-[11px] text-[var(--primary)]">
+            {shop.tags.map((t) => `#${t}`).join(" ")}
+          </p>
+        )}
       </div>
       <div className="flex shrink-0 items-center gap-1">
         <button onClick={onEdit} className="rounded-full p-1.5 text-[var(--text-faint)] hover:bg-[var(--surface-muted)]">
@@ -153,16 +159,26 @@ function ShopForm({
         <textarea name="description" rows={2} maxLength={500} defaultValue={shop?.description ?? ""} className={inputClass} />
       </div>
       <div>
-        <FieldLabel>住所</FieldLabel>
+        <FieldLabel>ハッシュタグ(任意・スペース区切りで複数、例: ラーメン コンビニ)</FieldLabel>
+        <input
+          name="tags"
+          maxLength={300}
+          placeholder="例: ラーメン 深夜営業"
+          defaultValue={shop?.tags?.join(" ") ?? ""}
+          className={inputClass}
+        />
+      </div>
+      <div>
+        <FieldLabel>住所(任意)</FieldLabel>
         <input name="address" maxLength={200} defaultValue={shop?.address ?? ""} className={inputClass} />
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <FieldLabel>営業時間</FieldLabel>
+          <FieldLabel>営業時間(任意)</FieldLabel>
           <input name="businessHours" maxLength={100} defaultValue={shop?.businessHours ?? ""} className={inputClass} />
         </div>
         <div>
-          <FieldLabel>定休日</FieldLabel>
+          <FieldLabel>定休日(任意)</FieldLabel>
           <input name="closedDays" maxLength={100} defaultValue={shop?.closedDays ?? ""} className={inputClass} />
         </div>
       </div>

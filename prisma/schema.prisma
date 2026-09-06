@@ -401,6 +401,7 @@ model Shop {
   phone         String?
   mapUrl        String? // Googleマップ等へのリンク(手動入力 or 住所から自動生成)
   coverImage    String? // data URI(base64)。任意
+  tags          String[] @default([]) // ハッシュタグ(例: "ラーメン", "コンビニ")。検索・絞り込みに使う
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
