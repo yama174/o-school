@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { getArticle, listRelatedArticles } from "@/lib/articles";
 import { Badge } from "@/components/ui";
 import { AdSlot } from "@/components/AdSlot";
+import { ArticleBlockRenderer } from "@/components/ArticleBlockRenderer";
+import { articleBlocksSchema } from "@/lib/article-blocks";
 import { CalendarDays, User } from "lucide-react";
 
 export async function generateMetadata({ params }: PageProps<"/articles/[id]">) {
@@ -26,6 +28,8 @@ export default async function ArticleDetailPage({ params }: PageProps<"/articles
   if (!article) notFound();
 
   const related = await listRelatedArticles(article.id, article.categoryId);
+  const parsedBlocks = article.blocks ? articleBlocksSchema.safeParse(article.blocks) : null;
+  const blocks = parsedBlocks?.success ? parsedBlocks.data : null;
 
   return (
     <div className="pb-6">
@@ -57,7 +61,11 @@ export default async function ArticleDetailPage({ params }: PageProps<"/articles
           />
         )}
 
-        <div className="whitespace-pre-wrap text-sm leading-relaxed text-[var(--text)]">{article.body}</div>
+        {blocks ? (
+          <ArticleBlockRenderer blocks={blocks} />
+        ) : (
+          <div className="whitespace-pre-wrap text-sm leading-relaxed text-[var(--text)]">{article.body}</div>
+        )}
       </article>
 
       <AdSlot placement="article-detail-bottom" />

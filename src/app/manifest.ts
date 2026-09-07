@@ -12,10 +12,10 @@ export default function manifest(): MetadataRoute.Manifest {
     theme_color: "#0ea5e9",
     orientation: "portrait",
     icons: [
-      { src: "/icons/192", sizes: "192x192", type: "image/png", purpose: "any" },
-      { src: "/icons/192", sizes: "192x192", type: "image/png", purpose: "maskable" },
-      { src: "/icons/512", sizes: "512x512", type: "image/png", purpose: "any" },
-      { src: "/icons/512", sizes: "512x512", type: "image/png", purpose: "maskable" },
+      // ロゴ画像自体がキャンバス一杯まで占めるデザインのため、余白のない
+      // maskable purposeは指定しない(OS側で丸くクロップされ欠ける恐れがあるため)。
+      { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
+      { src: "/icons/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
     ],
   };
 }

@@ -17,6 +17,7 @@ export default async function AdminArticlesPage() {
           title: a.title,
           excerpt: a.excerpt,
           body: a.body,
+          blocks: a.blocks,
           thumbnail: a.thumbnail,
           categoryId: a.categoryId,
           categoryName: a.category.name,

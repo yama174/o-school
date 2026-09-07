@@ -492,7 +492,9 @@ model Article {
   id          String   @id @default(cuid())
   title       String
   excerpt     String? // 一覧・SNS共有用の短い要約
-  body        String // 本文(プレーンテキスト、改行を保持して表示)
+  body        String // 本文(プレーンテキスト、改行を保持して表示)。blocksがある場合も
+  // 検索(全文検索)・OGP descriptionのフォールバック用に、blocksの文字列を結合して自動生成し保存する
+  blocks      Json? // ブロック形式の本文(オモコロ風レイアウト)。設定時はbodyの代わりにこちらを表示する
   thumbnail   String? // data URI(base64)。任意
   categoryId  String
   category    ArticleCategory @relation(fields: [categoryId], references: [id])

@@ -3,8 +3,9 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   experimental: {
     serverActions: {
-      // お店の写真投稿(最大3MB)がフォーム送信で乗るため、既定の1MBより広げる
-      bodySizeLimit: "5mb",
+      // お店の写真投稿(最大3MB)や、記事のブロックエディタ(複数画像を1回で送信、
+      // 各1.5MBまで)がフォーム送信に乗るため、既定の1MBより広げる
+      bodySizeLimit: "10mb",
     },
   },
   async redirects() {

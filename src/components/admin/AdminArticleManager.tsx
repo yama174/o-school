@@ -4,6 +4,8 @@ import { useActionState, useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { upsertArticleAction, deleteArticleAction } from "@/lib/actions/admin-articles";
 import { ARTICLE_STATUSES, ARTICLE_STATUS_LABEL } from "@/lib/constants";
+import { articleBlocksSchema, type ArticleBlock } from "@/lib/article-blocks";
+import { ArticleBlockEditor } from "@/components/admin/ArticleBlockEditor";
 import { Button, Card, FieldLabel, inputClass, Badge } from "@/components/ui";
 import { Pencil, Trash2, X } from "lucide-react";
 import type { ActionState } from "@/lib/actions/auth";
@@ -17,6 +19,7 @@ interface Article {
   title: string;
   excerpt: string | null;
   body: string;
+  blocks: unknown;
   thumbnail: string | null;
   categoryId: string;
   categoryName: string;
@@ -156,6 +159,9 @@ function ArticleForm({
         <FieldLabel>本文</FieldLabel>
         <textarea name="body" required rows={8} maxLength={8000} defaultValue={article?.body} className={inputClass} />
       </div>
+
+      <ArticleBlockEditor initialBlocks={parseBlocks(article?.blocks)} />
+
       <div>
         <FieldLabel>サムネイル画像(任意、jpeg/png/webp・3MBまで)</FieldLabel>
         {article?.thumbnail && !removeThumb ? (
@@ -187,4 +193,10 @@ function ArticleForm({
       </div>
     </form>
   );
+}
+
+function parseBlocks(raw: unknown): ArticleBlock[] | null {
+  if (!raw) return null;
+  const parsed = articleBlocksSchema.safeParse(raw);
+  return parsed.success ? parsed.data : null;
 }
