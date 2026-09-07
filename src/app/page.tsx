@@ -11,6 +11,7 @@ import {
 import { listAssignments } from "@/lib/assignments";
 import { getAttendanceStats } from "@/lib/attendance";
 import { listArticles } from "@/lib/articles";
+import { listActiveHomeBanners } from "@/lib/home-banner";
 import { prisma } from "@/lib/db";
 import {
   todayJST,
@@ -27,6 +28,8 @@ import { TimetableList } from "@/components/TimetableList";
 import { StarRatingDisplay } from "@/components/StarRating";
 import { AdSlot } from "@/components/AdSlot";
 import { GateForm } from "@/components/GateForm";
+import { HomeBannerStrip } from "@/components/HomeBannerStrip";
+import { MascotTicker } from "@/components/MascotTicker";
 import {
   ChevronRight,
   PartyPopper,
@@ -67,7 +70,7 @@ export default async function HomePage() {
   const { currentPeriod, nextPeriod } = getPeriodStatus(hhmm);
   const greeting = greetingForNow(hhmm);
 
-  const [todayTT, tomorrowTT, nextEvents, monthDays, announcements, choiceMap] = await Promise.all([
+  const [todayTT, tomorrowTT, nextEvents, monthDays, announcements, choiceMap, homeBanners] = await Promise.all([
     getDayTimetable(klass.id, today),
     getDayTimetable(klass.id, tomorrow),
     prisma.event.findMany({
@@ -78,6 +81,7 @@ export default async function HomePage() {
     getMonthTimetable(klass.id, today.getUTCFullYear(), today.getUTCMonth() + 1),
     prisma.announcement.findMany({ orderBy: { publishedAt: "desc" }, take: 2 }),
     user ? getElectiveChoiceMap(user.id, klass.id) : Promise.resolve(null),
+    listActiveHomeBanners(),
   ]);
 
   const subjectCounts = summarizeSubjectCounts(monthDays, choiceMap, !!user).slice(0, 5);
@@ -88,6 +92,16 @@ export default async function HomePage() {
     : [];
   const dueSoon = assignments.filter((a) => !a.completed && daysUntil(a.dueDate) <= 3).slice(0, 4);
 
+  const tickerMessage = dueSoon.length > 0
+    ? `課題が${dueSoon.length}件、締切が近づいてるよ。忘れずにチェックしてね!`
+    : nextEvents[0] && daysUntil(nextEvents[0].date, today) <= 7
+      ? `もうすぐ「${nextEvents[0].title}」があるよ!`
+      : greeting === "おはよう"
+        ? "今日も一日、がんばろう!"
+        : greeting === "こんにちは"
+          ? "午後もこの調子でいこう!"
+          : "今日もお疲れさま!ゆっくり休んでね。";
+
   return (
     <div className="flex flex-col gap-5 pb-6">
       {/* 挨拶 + 今日の日付(学校名は表示しない) */}
@@ -97,6 +111,8 @@ export default async function HomePage() {
         </p>
         <h1 className="mt-0.5 text-lg font-bold">{formatJapaneseDate(today)}</h1>
       </div>
+
+      <HomeBannerStrip banners={homeBanners} />
 
       {/* 1. TODAY: 今日の時間割(現在/次の授業をハイライト) */}
       <Card className="border-2 border-[var(--primary)]/10 bg-gradient-to-br from-[var(--primary-soft)] to-[var(--surface)]">
@@ -115,6 +131,8 @@ export default async function HomePage() {
           nextPeriod={nextPeriod}
         />
       </Card>
+
+      <MascotTicker message={tickerMessage} />
 
       <AdSlot placement="home-slot-1" />
 
@@ -138,6 +156,12 @@ export default async function HomePage() {
               </Link>
             }
           />
+          <div className="mb-2.5 flex items-center gap-2">
+            <Mascot name={dueSoon.length > 0 ? "face-side-eye" : "face-smile"} size={28} />
+            <p className="text-xs text-[var(--text-muted)]">
+              {dueSoon.length > 0 ? "締切が近い課題があるよ。早めに終わらせておこう!" : "課題は今のところ大丈夫そう!"}
+            </p>
+          </div>
           {dueSoon.length === 0 ? (
             <p className="py-2 text-sm text-[var(--text-faint)]">直近の締切はありません。</p>
           ) : (
@@ -174,8 +198,11 @@ export default async function HomePage() {
       <div className="grid grid-cols-2 gap-3">
         <Link href="/events" className="block">
           <Card className="h-full">
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-[var(--text-muted)]">
-              <PartyPopper size={14} /> 次の行事
+            <div className="flex items-center justify-between gap-1.5">
+              <span className="flex items-center gap-1.5 text-xs font-semibold text-[var(--text-muted)]">
+                <PartyPopper size={14} /> 次の行事
+              </span>
+              <Mascot name="face-side" size={20} />
             </div>
             {nextEvents[0] ? (
               <>
@@ -193,8 +220,20 @@ export default async function HomePage() {
         {user ? (
           <Link href="/attendance" className="block">
             <Card className="h-full">
-              <div className="flex items-center gap-1.5 text-xs font-semibold text-[var(--text-muted)]">
-                <CheckSquare size={14} /> 出席率
+              <div className="flex items-center justify-between gap-1.5">
+                <span className="flex items-center gap-1.5 text-xs font-semibold text-[var(--text-muted)]">
+                  <CheckSquare size={14} /> 出席率
+                </span>
+                <Mascot
+                  name={
+                    (attendanceStats?.attendanceRate ?? 100) >= 95
+                      ? "face-grin"
+                      : (attendanceStats?.attendanceRate ?? 100) >= 85
+                        ? "face-smile"
+                        : "face-flustered"
+                  }
+                  size={20}
+                />
               </div>
               <p className="mt-1.5 font-bold">{attendanceStats?.attendanceRate}%</p>
               <p className="text-xs text-[var(--text-muted)]">

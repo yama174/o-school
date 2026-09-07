@@ -324,6 +324,21 @@ model Announcement {
   publishedAt DateTime @default(now())
 }
 
+// ホーム画面上部の横長バナー(お知らせ・おすすめ記事の告知等に使う)。
+// 複数enabledがあれば横スクロールで並べて表示する。imageDataは任意
+// (data URI。未設定ならテキストのみ表示)。
+model HomeBanner {
+  id        String   @id @default(cuid())
+  title     String
+  body      String?
+  imageData String? // data:image/...;base64,...
+  linkUrl   String? // タップ時の遷移先(任意。内部パス/外部URLどちらも可)
+  enabled   Boolean  @default(true)
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 // ---------------------------------------------------------------------------
 // 広告枠 & サイト設定
 // ---------------------------------------------------------------------------

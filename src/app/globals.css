@@ -112,3 +112,22 @@ body {
 .bg-sky-gradient {
   background: var(--sky-gradient);
 }
+
+/* マスコット「O」の表情を薄く並べてループさせる背景アニメーション(トップページ)。
+   コンテンツを2回連続で並べておき、ちょうど半分だけ動かすことで継ぎ目なくループする。 */
+@keyframes mascot-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+.animate-mascot-marquee {
+  animation: mascot-marquee 32s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-mascot-marquee {
+    animation: none;
+  }
+}
