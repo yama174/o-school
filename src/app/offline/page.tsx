@@ -6,6 +6,7 @@ export default function OfflinePage() {
       <EmptyState
         title="オフラインです"
         description="インターネットに接続されていません。電波状況を確認してもう一度お試しください。"
+        mascot="petan"
       />
     </div>
   );

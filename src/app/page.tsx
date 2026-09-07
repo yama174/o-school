@@ -22,12 +22,11 @@ import {
   greetingForNow,
 } from "@/lib/date";
 import { getPeriodStatus } from "@/lib/schedule-time";
-import { Card, SectionHeader, Badge, LinkButton, EmptyState } from "@/components/ui";
+import { Card, SectionHeader, Badge, LinkButton, EmptyState, Mascot } from "@/components/ui";
 import { TimetableList } from "@/components/TimetableList";
 import { StarRatingDisplay } from "@/components/StarRating";
 import { AdSlot } from "@/components/AdSlot";
 import { GateForm } from "@/components/GateForm";
-import { Logo } from "@/components/Logo";
 import {
   ChevronRight,
   PartyPopper,
@@ -288,7 +287,7 @@ function PublicHome({
   return (
     <div className="flex flex-col gap-5 pb-6">
       <div className="flex flex-col items-center gap-3 py-4 text-center">
-        <Logo size={48} />
+        <Mascot name="stand-discover" size={104} />
         <h1 className="text-xl font-bold">O-schoolへようこそ</h1>
         <p className="max-w-sm text-sm text-[var(--text-muted)]">
           O-schoolは学校公式のサービスではありません。時間割など生徒向けの情報は、参加コードを入力するか、アカウントにログインすると見られます。

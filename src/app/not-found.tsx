@@ -7,6 +7,7 @@ export default function NotFound() {
         title="ページが見つかりません"
         description="URLが間違っているか、ページが削除された可能性があります。"
         action={<LinkButton href="/">ホームに戻る</LinkButton>}
+        mascot="face-surprised"
       />
     </div>
   );

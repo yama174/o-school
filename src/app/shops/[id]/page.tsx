@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { getShopDetail } from "@/lib/shops";
 import { Card, PageHeader, Badge, SectionHeader, EmptyState } from "@/components/ui";
+import { MascotSpeech } from "@/components/MascotSpeech";
 import { StarRatingDisplay } from "@/components/StarRating";
 import { AdSlot } from "@/components/AdSlot";
 import { ShopReviewForm } from "@/components/shops/ShopReviewForm";
@@ -40,8 +41,13 @@ export default async function ShopDetailPage({ params }: PageProps<"/shops/[id]"
         }
       />
 
+      {shop.description && (
+        <div className="mb-4">
+          <MascotSpeech text={shop.description} />
+        </div>
+      )}
+
       <Card className="mb-4">
-        {shop.description && <p className="mb-3 text-sm">{shop.description}</p>}
         {shop.tags.length > 0 && (
           <div className="mb-3 flex flex-wrap gap-1.5">
             {shop.tags.map((t) => (

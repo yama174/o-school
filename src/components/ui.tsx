@@ -94,17 +94,64 @@ export function Badge({
   );
 }
 
+// マスコットキャラ「O」の差分素材(public/mascot/*.png)。表情差分は顔アイコン、
+// stand/sit/run/petan/look-at-town は全身の立ち絵ポーズ。
+export type MascotName =
+  | "face-smile"
+  | "face-smile-more"
+  | "face-grin"
+  | "face-surprised"
+  | "face-wink"
+  | "face-side-eye"
+  | "face-flustered"
+  | "face-side"
+  | "stand-normal"
+  | "stand-front"
+  | "stand-side"
+  | "stand-discover"
+  | "sit-smile"
+  | "look-at-town"
+  | "run"
+  | "petan";
+
+export function Mascot({
+  name,
+  size = 56,
+  className,
+}: {
+  name: MascotName;
+  size?: number;
+  className?: string;
+}) {
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={`/mascot/${name}.webp`}
+      alt=""
+      aria-hidden="true"
+      width={size}
+      height={size}
+      style={{ width: size, height: "auto" }}
+      className={className}
+    />
+  );
+}
+
 export function EmptyState({
   title,
   description,
   action,
+  mascot = "face-smile",
 }: {
   title: string;
   description?: string;
   action?: ReactNode;
+  /** falseで非表示。デフォルトは"face-smile"表示 */
+  mascot?: MascotName | false;
 }) {
   return (
     <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-[var(--border)] px-6 py-10 text-center">
+      {mascot && <Mascot name={mascot} size={64} className="mb-2" />}
       <p className="font-semibold">{title}</p>
       {description && (
         <p className="mt-1 max-w-sm text-sm text-[var(--text-muted)]">

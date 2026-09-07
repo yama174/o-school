@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { GateForm } from "@/components/GateForm";
-import { Card } from "@/components/ui";
-import { Logo } from "@/components/Logo";
+import { Card, Mascot } from "@/components/ui";
 
 export const metadata = {
   title: "参加コードの入力",
@@ -14,7 +13,7 @@ export default async function GatePage({ searchParams }: PageProps<"/gate">) {
 
   return (
     <div className="mx-auto max-w-sm pt-8">
-      <Logo size={40} className="mb-3" />
+      <Mascot name="stand-front" size={88} className="mb-3" />
       <h1 className="mb-1 text-xl font-bold">O-schoolへようこそ</h1>
       <p className="mb-6 text-sm text-[var(--text-muted)]">
         O-schoolは学校公式のサービスではありません。時間割などの生徒向け情報を見るには、まず生徒向け参加コードを入力してください。

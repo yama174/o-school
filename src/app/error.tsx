@@ -24,6 +24,7 @@ export default function GlobalError({
             再読み込み
           </Button>
         }
+        mascot="face-flustered"
       />
     </div>
   );
