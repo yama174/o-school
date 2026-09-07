@@ -36,6 +36,10 @@ export const metadata: Metadata = {
     statusBarStyle: "default",
     title: "O-school",
   },
+  other: {
+    // AdSenseのサイト所有権確認(メタタグ方式)。スクリプト方式と両方仕込んでおく。
+    "google-adsense-account": "ca-pub-5628096670327247",
+  },
 };
 
 export const viewport: Viewport = {
