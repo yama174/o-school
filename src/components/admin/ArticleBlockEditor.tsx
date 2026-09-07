@@ -206,20 +206,31 @@ function BlockCard({
 
       {block.type === "chat" && (
         <div className="flex flex-col gap-2">
-          <div className="flex flex-wrap gap-1.5">
-            {CHAT_FACES.map((f) => (
-              <button
-                key={f}
-                type="button"
-                onClick={() => onChange({ ...block, face: f })}
-                className={clsx(
-                  "overflow-hidden rounded-full border-2",
-                  block.face === f ? "border-[var(--primary)]" : "border-transparent"
-                )}
-              >
-                <Mascot name={f as ChatFace} size={32} />
-              </button>
-            ))}
+          <div className="flex flex-wrap gap-2">
+            {CHAT_FACES.map((f) => {
+              const selected = block.face === f;
+              return (
+                <button
+                  key={f}
+                  type="button"
+                  onClick={() => onChange({ ...block, face: f })}
+                  aria-pressed={selected}
+                  className={clsx(
+                    "relative flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 p-1",
+                    selected ? "border-[var(--primary)] bg-[var(--primary-soft)]" : "border-transparent hover:border-[var(--border)]"
+                  )}
+                >
+                  <span className="overflow-hidden rounded-full">
+                    <Mascot name={f as ChatFace} size={32} />
+                  </span>
+                  {selected && (
+                    <span className="absolute -right-0.5 -bottom-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-[var(--primary)] text-[9px] text-white">
+                      ✓
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
           <div className="flex gap-1.5">
             {(["left", "right"] as const).map((side) => (
