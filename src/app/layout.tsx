@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Noto_Sans_JP } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 import { SiteChrome } from "@/components/SiteChrome";
 import { getCurrentUser } from "@/lib/auth";
@@ -50,6 +51,16 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
 
   return (
     <html lang="ja" className={`${notoSansJP.variable} h-full antialiased`}>
+      <head>
+        {/* Google AdSense サイト所有権確認用(審査申請のため)。strategy="beforeInteractive"で
+            <head>内・他スクリプトより先に配信されるようにする */}
+        <Script
+          async
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5628096670327247"
+          crossOrigin="anonymous"
+          strategy="beforeInteractive"
+        />
+      </head>
       <body className="min-h-full">
         <SiteChrome viewer={viewer}>{children}</SiteChrome>
         <ServiceWorkerRegister />
